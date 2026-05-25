@@ -76,19 +76,18 @@ jobs:
         id: meta
         run: echo "tag=${{ github.sha }}" >> $GITHUB_OUTPUT
 
-      # ── CHANGED SECTION START ──────────────────────────────────────────
-      # Previously used /backend and /frontend as separate repo paths.
-      # Now using a single ECR repo with backend- and frontend- tag prefixes.
       - name: Build backend image
         run: |
           docker build \
             -t ${{ secrets.ECR_REPOSITORY }}:backend-${{ steps.meta.outputs.tag }} \
+            -t ${{ secrets.ECR_REPOSITORY }}:backend-latest \
             ./backend
 
       - name: Build frontend image
         run: |
           docker build \
             -t ${{ secrets.ECR_REPOSITORY }}:frontend-${{ steps.meta.outputs.tag }} \
+            -t ${{ secrets.ECR_REPOSITORY }}:frontend-latest \
             ./frontend
 
       - name: Trivy scan backend
@@ -118,7 +117,6 @@ jobs:
         run: |
           docker push ${{ secrets.ECR_REPOSITORY }}:frontend-${{ steps.meta.outputs.tag }}
           docker push ${{ secrets.ECR_REPOSITORY }}:frontend-latest
-      # ── CHANGED SECTION END ────────────────────────────────────────────
 
       - name: Upload Trivy backend results
         uses: github/codeql-action/upload-sarif@v3
