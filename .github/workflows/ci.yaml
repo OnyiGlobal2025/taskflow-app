@@ -1,0 +1,117 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+
+jobs:
+  lint-and-test:
+    name: Lint and unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          npm ci
+
+      - name: Run backend tests
+        run: |
+          cd backend
+          npm test --if-present
+
+  sast-scan:
+    name: SAST scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: p/nodejs p/secrets
+        continue-on-error: true
+
+  build-and-push:
+    name: Build and push images
+    runs-on: ubuntu-latest
+    needs: [lint-and-test, sast-scan]
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: github-actions-taskflow
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tag
+        id: meta
+        run: echo "tag=${{ github.sha }}" >> $GITHUB_OUTPUT
+
+      - name: Build backend image
+        run: |
+          docker build -t ${{ secrets.ECR_REPOSITORY }}/backend:${{ steps.meta.outputs.tag }} ./backend
+          docker tag ${{ secrets.ECR_REPOSITORY }}/backend:${{ steps.meta.outputs.tag }} \
+            ${{ secrets.ECR_REPOSITORY }}/backend:latest
+
+      - name: Build frontend image
+        run: |
+          docker build -t ${{ secrets.ECR_REPOSITORY }}/frontend:${{ steps.meta.outputs.tag }} ./frontend
+          docker tag ${{ secrets.ECR_REPOSITORY }}/frontend:${{ steps.meta.outputs.tag }} \
+            ${{ secrets.ECR_REPOSITORY }}/frontend:latest
+
+      - name: Trivy scan backend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "${{ secrets.ECR_REPOSITORY }}/backend:${{ steps.meta.outputs.tag }}"
+          format: "sarif"
+          output: "trivy-backend.sarif"
+          severity: "CRITICAL,HIGH"
+          exit-code: "0"
+
+      - name: Trivy scan frontend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "${{ secrets.ECR_REPOSITORY }}/frontend:${{ steps.meta.outputs.tag }}"
+          format: "sarif"
+          output: "trivy-frontend.sarif"
+          severity: "CRITICAL,HIGH"
+          exit-code: "0"
+
+      - name: Push backend image
+        run: |
+          docker push ${{ secrets.ECR_REPOSITORY }}/backend:${{ steps.meta.outputs.tag }}
+          docker push ${{ secrets.ECR_REPOSITORY }}/backend:latest
+
+      - name: Push frontend image
+        run: |
+          docker push ${{ secrets.ECR_REPOSITORY }}/frontend:${{ steps.meta.outputs.tag }}
+          docker push ${{ secrets.ECR_REPOSITORY }}/frontend:latest
+
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: "."

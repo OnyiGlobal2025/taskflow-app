@@ -1,0 +1,107 @@
+name: CD Pipeline
+
+on:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  promote-dev:
+    name: Deploy to dev
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Checkout gitops repo
+        uses: actions/checkout@v4
+        with:
+          repository: OnyiGlobal2025/taskflow-gitops
+          token: ${{ secrets.GITOPS_PAT }}
+
+      - name: Update dev image tag
+        run: |
+          IMAGE_TAG="${{ github.event.workflow_run.head_sha }}"
+          sed -i "s|tag:.*|tag: \"${IMAGE_TAG}\"|" envs/dev/values.yaml
+          git config user.email "ci@taskflow.com"
+          git config user.name "CI Bot"
+          git add envs/dev/values.yaml
+          git commit -m "chore: promote ${IMAGE_TAG} to dev"
+          git push
+
+  promote-staging:
+    name: Deploy to staging
+    runs-on: ubuntu-latest
+    needs: promote-dev
+    steps:
+      - name: Checkout gitops repo
+        uses: actions/checkout@v4
+        with:
+          repository: OnyiGlobal2025/taskflow-gitops
+          token: ${{ secrets.GITOPS_PAT }}
+
+      - name: Update staging image tag
+        run: |
+          IMAGE_TAG="${{ github.event.workflow_run.head_sha }}"
+          sed -i "s|tag:.*|tag: \"${IMAGE_TAG}\"|" envs/staging/values.yaml
+          git config user.email "ci@taskflow.com"
+          git config user.name "CI Bot"
+          git add envs/staging/values.yaml
+          git commit -m "chore: promote ${IMAGE_TAG} to staging"
+          git push
+
+      - name: Notify Slack staging deployed
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {"text": ":rocket: *Staging deployed*\nCommit: ${{ github.event.workflow_run.head_sha }}\nActor: ${{ github.actor }}"}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
+
+  approve-prod:
+    name: Await production approval
+    runs-on: ubuntu-latest
+    needs: promote-staging
+    environment: production
+    steps:
+      - name: Notify Slack approval needed
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {"text": ":hourglass: *Production approval needed*\nApprove here: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
+
+      - name: Approval granted
+        run: echo "Production deployment approved"
+
+  promote-prod:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    needs: approve-prod
+    steps:
+      - name: Checkout gitops repo
+        uses: actions/checkout@v4
+        with:
+          repository: OnyiGlobal2025/taskflow-gitops
+          token: ${{ secrets.GITOPS_PAT }}
+
+      - name: Update prod image tag
+        run: |
+          IMAGE_TAG="${{ github.event.workflow_run.head_sha }}"
+          sed -i "s|tag:.*|tag: \"${IMAGE_TAG}\"|" envs/prod/values.yaml
+          git config user.email "ci@taskflow.com"
+          git config user.name "CI Bot"
+          git add envs/prod/values.yaml
+          git commit -m "chore: promote ${IMAGE_TAG} to prod"
+          git push
+
+      - name: Notify Slack prod deployed
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {"text": ":white_check_mark: *Production deployed*\nTag: ${{ github.event.workflow_run.head_sha }}"}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
