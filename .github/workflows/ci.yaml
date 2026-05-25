@@ -123,6 +123,7 @@ jobs:
         if: always()
         with:
           sarif_file: trivy-backend.sarif
+          category: trivy-backend        # ✅ fix: unique category added
         continue-on-error: true
 
       - name: Upload Trivy frontend results
@@ -130,4 +131,5 @@ jobs:
         if: always()
         with:
           sarif_file: trivy-frontend.sarif
+          category: trivy-frontend       # ✅ fix: unique category added
         continue-on-error: true
