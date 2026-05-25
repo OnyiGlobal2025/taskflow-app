@@ -20,7 +20,7 @@ jobs:
 
       - name: Update dev image tag
         run: |
-          IMAGE_TAG="${{ github.event.workflow_run.head_sha }}"
+          IMAGE_TAG="backend-${{ github.event.workflow_run.head_sha }}"
           sed -i "s|tag:.*|tag: \"${IMAGE_TAG}\"|" envs/dev/values.yaml
           git config user.email "ci@taskflow.com"
           git config user.name "CI Bot"
@@ -41,7 +41,7 @@ jobs:
 
       - name: Update staging image tag
         run: |
-          IMAGE_TAG="${{ github.event.workflow_run.head_sha }}"
+          IMAGE_TAG="backend-${{ github.event.workflow_run.head_sha }}"
           sed -i "s|tag:.*|tag: \"${IMAGE_TAG}\"|" envs/staging/values.yaml
           git config user.email "ci@taskflow.com"
           git config user.name "CI Bot"
@@ -89,7 +89,7 @@ jobs:
 
       - name: Update prod image tag
         run: |
-          IMAGE_TAG="${{ github.event.workflow_run.head_sha }}"
+          IMAGE_TAG="backend-${{ github.event.workflow_run.head_sha }}"
           sed -i "s|tag:.*|tag: \"${IMAGE_TAG}\"|" envs/prod/values.yaml
           git config user.email "ci@taskflow.com"
           git config user.name "CI Bot"
