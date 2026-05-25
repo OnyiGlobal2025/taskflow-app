@@ -7,9 +7,9 @@ on:
     branches: [main]
 
 permissions:
-    id-token: write
-    contents: read
-    security-events: write   
+  id-token: write
+  contents: read
+  security-events: write
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -76,22 +76,25 @@ jobs:
         id: meta
         run: echo "tag=${{ github.sha }}" >> $GITHUB_OUTPUT
 
+      # ── CHANGED SECTION START ──────────────────────────────────────────
+      # Previously used /backend and /frontend as separate repo paths.
+      # Now using a single ECR repo with backend- and frontend- tag prefixes.
       - name: Build backend image
         run: |
-          docker build -t ${{ secrets.ECR_REPOSITORY }}/backend:${{ steps.meta.outputs.tag }} ./backend
-          docker tag ${{ secrets.ECR_REPOSITORY }}/backend:${{ steps.meta.outputs.tag }} \
-            ${{ secrets.ECR_REPOSITORY }}/backend:latest
+          docker build \
+            -t ${{ secrets.ECR_REPOSITORY }}:backend-${{ steps.meta.outputs.tag }} \
+            ./backend
 
       - name: Build frontend image
         run: |
-          docker build -t ${{ secrets.ECR_REPOSITORY }}/frontend:${{ steps.meta.outputs.tag }} ./frontend
-          docker tag ${{ secrets.ECR_REPOSITORY }}/frontend:${{ steps.meta.outputs.tag }} \
-            ${{ secrets.ECR_REPOSITORY }}/frontend:latest
+          docker build \
+            -t ${{ secrets.ECR_REPOSITORY }}:frontend-${{ steps.meta.outputs.tag }} \
+            ./frontend
 
       - name: Trivy scan backend
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: "${{ secrets.ECR_REPOSITORY }}/backend:${{ steps.meta.outputs.tag }}"
+          image-ref: "${{ secrets.ECR_REPOSITORY }}:backend-${{ steps.meta.outputs.tag }}"
           format: "sarif"
           output: "trivy-backend.sarif"
           severity: "CRITICAL,HIGH"
@@ -100,7 +103,7 @@ jobs:
       - name: Trivy scan frontend
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: "${{ secrets.ECR_REPOSITORY }}/frontend:${{ steps.meta.outputs.tag }}"
+          image-ref: "${{ secrets.ECR_REPOSITORY }}:frontend-${{ steps.meta.outputs.tag }}"
           format: "sarif"
           output: "trivy-frontend.sarif"
           severity: "CRITICAL,HIGH"
@@ -108,13 +111,14 @@ jobs:
 
       - name: Push backend image
         run: |
-          docker push ${{ secrets.ECR_REPOSITORY }}/backend:${{ steps.meta.outputs.tag }}
-          docker push ${{ secrets.ECR_REPOSITORY }}/backend:latest
+          docker push ${{ secrets.ECR_REPOSITORY }}:backend-${{ steps.meta.outputs.tag }}
+          docker push ${{ secrets.ECR_REPOSITORY }}:backend-latest
 
       - name: Push frontend image
         run: |
-          docker push ${{ secrets.ECR_REPOSITORY }}/frontend:${{ steps.meta.outputs.tag }}
-          docker push ${{ secrets.ECR_REPOSITORY }}/frontend:latest
+          docker push ${{ secrets.ECR_REPOSITORY }}:frontend-${{ steps.meta.outputs.tag }}
+          docker push ${{ secrets.ECR_REPOSITORY }}:frontend-latest
+      # ── CHANGED SECTION END ────────────────────────────────────────────
 
       - name: Upload Trivy backend results
         uses: github/codeql-action/upload-sarif@v3
