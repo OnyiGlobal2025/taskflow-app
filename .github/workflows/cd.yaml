@@ -18,14 +18,16 @@ jobs:
           repository: OnyiGlobal2025/taskflow-gitops
           token: ${{ secrets.GITOPS_PAT }}
 
-      - name: Update dev image tag
+      - name: Update dev image tags
         run: |
-          IMAGE_TAG="backend-${{ github.event.workflow_run.head_sha }}"
-          sed -i "s|tag:.*|tag: \"${IMAGE_TAG}\"|" envs/dev/values.yaml
+          BACKEND_TAG="backend-${{ github.event.workflow_run.head_sha }}"
+          FRONTEND_TAG="frontend-${{ github.event.workflow_run.head_sha }}"
+          sed -i "s|tag: \"backend-.*\"|tag: \"${BACKEND_TAG}\"|" envs/dev/values.yaml
+          sed -i "s|tag: \"frontend-.*\"|tag: \"${FRONTEND_TAG}\"|" envs/dev/values.yaml
           git config user.email "ci@taskflow.com"
           git config user.name "CI Bot"
           git add envs/dev/values.yaml
-          git commit -m "chore: promote ${IMAGE_TAG} to dev"
+          git commit -m "chore: promote ${{ github.event.workflow_run.head_sha }} to dev"
           git push
 
   promote-staging:
@@ -39,14 +41,16 @@ jobs:
           repository: OnyiGlobal2025/taskflow-gitops
           token: ${{ secrets.GITOPS_PAT }}
 
-      - name: Update staging image tag
+      - name: Update staging image tags
         run: |
-          IMAGE_TAG="backend-${{ github.event.workflow_run.head_sha }}"
-          sed -i "s|tag:.*|tag: \"${IMAGE_TAG}\"|" envs/staging/values.yaml
+          BACKEND_TAG="backend-${{ github.event.workflow_run.head_sha }}"
+          FRONTEND_TAG="frontend-${{ github.event.workflow_run.head_sha }}"
+          sed -i "s|tag: \"backend-.*\"|tag: \"${BACKEND_TAG}\"|" envs/staging/values.yaml
+          sed -i "s|tag: \"frontend-.*\"|tag: \"${FRONTEND_TAG}\"|" envs/staging/values.yaml
           git config user.email "ci@taskflow.com"
           git config user.name "CI Bot"
           git add envs/staging/values.yaml
-          git commit -m "chore: promote ${IMAGE_TAG} to staging"
+          git commit -m "chore: promote ${{ github.event.workflow_run.head_sha }} to staging"
           git push
 
       - name: Notify Slack staging deployed
@@ -87,14 +91,16 @@ jobs:
           repository: OnyiGlobal2025/taskflow-gitops
           token: ${{ secrets.GITOPS_PAT }}
 
-      - name: Update prod image tag
+      - name: Update prod image tags
         run: |
-          IMAGE_TAG="backend-${{ github.event.workflow_run.head_sha }}"
-          sed -i "s|tag:.*|tag: \"${IMAGE_TAG}\"|" envs/prod/values.yaml
+          BACKEND_TAG="backend-${{ github.event.workflow_run.head_sha }}"
+          FRONTEND_TAG="frontend-${{ github.event.workflow_run.head_sha }}"
+          sed -i "s|tag: \"backend-.*\"|tag: \"${BACKEND_TAG}\"|" envs/prod/values.yaml
+          sed -i "s|tag: \"frontend-.*\"|tag: \"${FRONTEND_TAG}\"|" envs/prod/values.yaml
           git config user.email "ci@taskflow.com"
           git config user.name "CI Bot"
           git add envs/prod/values.yaml
-          git commit -m "chore: promote ${IMAGE_TAG} to prod"
+          git commit -m "chore: promote ${{ github.event.workflow_run.head_sha }} to prod"
           git push
 
       - name: Notify Slack prod deployed
