@@ -11,6 +11,9 @@ jobs:
     name: Deploy to dev
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout gitops repo
         uses: actions/checkout@v4
@@ -29,6 +32,54 @@ jobs:
           git add envs/dev/values.yaml
           git commit -m "chore: promote ${{ github.event.workflow_run.head_sha }} to dev"
           git push
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: cd-rollback-dev
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name taskflow-eks-cluster --region ${{ secrets.AWS_REGION }}
+
+      - name: Wait for ArgoCD to sync
+        run: sleep 90
+
+      - name: Verify rollout health
+        id: health
+        run: |
+          set +e
+          kubectl rollout status deployment/taskflow-backend -n taskflow-dev --timeout=120s
+          BACKEND_OK=$?
+          kubectl rollout status deployment/taskflow-frontend -n taskflow-dev --timeout=120s
+          FRONTEND_OK=$?
+          if [ $BACKEND_OK -ne 0 ] || [ $FRONTEND_OK -ne 0 ]; then
+            echo "healthy=false" >> $GITHUB_OUTPUT
+          else
+            echo "healthy=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Rollback on failure
+        if: steps.health.outputs.healthy == 'false'
+        run: |
+          git revert --no-edit HEAD
+          git push
+          echo "Rollback triggered: reverted promotion to dev"
+
+      - name: Notify Slack rollback
+        if: steps.health.outputs.healthy == 'false'
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {"text": ":rotating_light: *Dev rollback triggered*\nDeployment failed health check, reverted to previous version.\nCommit: ${{ github.event.workflow_run.head_sha }}"}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
+
+      - name: Fail job if rolled back
+        if: steps.health.outputs.healthy == 'false'
+        run: exit 1
 
   promote-staging:
     name: Deploy to staging
