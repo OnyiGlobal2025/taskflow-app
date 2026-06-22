@@ -30,8 +30,12 @@ jobs:
           git config user.email "ci@taskflow.com"
           git config user.name "CI Bot"
           git add envs/dev/values.yaml
-          git commit -m "chore: promote ${{ github.event.workflow_run.head_sha }} to dev"
-          git push
+          if git diff --cached --quiet; then
+            echo "No changes to promote"
+          else
+            git commit -m "chore: promote ${{ github.event.workflow_run.head_sha }} to dev"
+            git push
+          fi
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -101,8 +105,12 @@ jobs:
           git config user.email "ci@taskflow.com"
           git config user.name "CI Bot"
           git add envs/staging/values.yaml
-          git commit -m "chore: promote ${{ github.event.workflow_run.head_sha }} to staging"
-          git push
+          if git diff --cached --quiet; then
+            echo "No changes to promote"
+          else
+            git commit -m "chore: promote ${{ github.event.workflow_run.head_sha }} to staging"
+            git push
+          fi
 
       - name: Notify Slack staging deployed
         uses: slackapi/slack-github-action@v1
@@ -151,8 +159,12 @@ jobs:
           git config user.email "ci@taskflow.com"
           git config user.name "CI Bot"
           git add envs/prod/values.yaml
-          git commit -m "chore: promote ${{ github.event.workflow_run.head_sha }} to prod"
-          git push
+          if git diff --cached --quiet; then
+            echo "No changes to promote"
+          else
+            git commit -m "chore: promote ${{ github.event.workflow_run.head_sha }} to prod"
+            git push
+          fi
 
       - name: Notify Slack prod deployed
         uses: slackapi/slack-github-action@v1
