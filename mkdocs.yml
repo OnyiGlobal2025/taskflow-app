@@ -1,0 +1,19 @@
+site_name: TaskFlow Application
+site_description: The TaskFlow application service — Node.js/Express, instrumented and containerized
+
+repo_url: https://github.com/OnyiGlobal2025/taskflow-app
+edit_uri: edit/main/docs/
+
+nav:
+  - Home: index.md
+  - Architecture: architecture.md
+
+plugins:
+  - techdocs-core
+
+markdown_extensions:
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
