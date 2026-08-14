@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: taskflow-app
+  description: TaskFlow application (backend + frontend) and CI/CD pipelines — build, scan, and delivery to ECR.
+  annotations:
+    github.com/project-slug: OnyiGlobal2025/taskflow-app
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - nodejs
+    - cicd
+    - github-actions
+    - application
+spec:
+  type: service
+  lifecycle: production
+  owner: platform-team
