@@ -10,8 +10,7 @@ metadata:
     # Services in the taskflow Helm chart. The Kubernetes plugin uses this to
     # find live workloads across all three environment namespaces.
     backstage.io/kubernetes-id: taskflow-app
-    # The ApplicationSet generates one Application per environment, all named
-    # taskflow-*. The wildcard surfaces dev, staging, and prod on one page.
+    
     argocd/app-name: taskflow-prod
   tags:
     - nodejs
